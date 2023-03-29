@@ -83,6 +83,9 @@ def runKerasTensorflowClassifierMultiprocess(opts):
         print("Cannot connect to the database")
         return 1
 
+    # 2023-03-25 KWS MySQLdb disables autocommit by default. Switch it on globally.
+    conn.autocommit(True)
+
     # If the list isn't specified assume it's the Eyeball List.
     if options.listid is not None:
         try:
