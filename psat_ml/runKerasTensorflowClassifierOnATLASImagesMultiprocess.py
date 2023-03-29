@@ -29,10 +29,9 @@ Example:
 import sys
 __doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
 from docopt import docopt
-from gkutils.commonutils import Struct, cleanOptions, readGenericDataFile, dbConnect
+from gkutils.commonutils import Struct, cleanOptions, readGenericDataFile, dbConnect, splitList, parallelProcess
 import sys, csv, os
 from runKerasTensorflowClassifierOnATLASImages import getObjectsByList, runKerasTensorflowClassifier, updateTransientRBValue
-from gkmultiprocessingUtils import *
 
 LOG_FILE_LOCATION = '/' + os.uname()[1].split('.')[0] + '/tc_logs/'
 LOG_PREFIX = 'ml_keras_'
