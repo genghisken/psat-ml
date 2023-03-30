@@ -22,7 +22,7 @@ Example:
 import sys
 __doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
 from docopt import docopt
-from gkutils import Struct, cleanOptions
+from gkutils.commonutils import Struct, cleanOptions
 import numpy as np
 import pandas as pd
 #from sklearn.metrics import roc_curve, auc
