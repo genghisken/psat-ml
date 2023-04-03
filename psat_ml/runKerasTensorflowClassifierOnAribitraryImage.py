@@ -2,7 +2,7 @@
 """Run the Keras/Tensorflow classifier.
 
 Usage:
-  %s <image>... [--classifier=<classifier>] [--outputcsv=<outputcsv>] [--fitsextension=<fitsextension>] [--keepfilename]
+  %s <image>... [--classifier=<classifier>] [--outputcsv=<outputcsv>] [--fitsextension=<fitsextension>] [--keepfilename] [--fileoffiles]
   %s (-h | --help)
   %s --version
 
@@ -13,6 +13,7 @@ Options:
   --outputcsv=<outputcsv>            Output file.
   --fitsextension=<fitsextension>    Which default FITS extension? [default: 0]
   --keepfilename                     Keep the filename - don't truncate it.
+  --fileoffiles                      Image file is a file of files. Allows many thousands of files to be read, avoiding command line constraints.
 
 Example:
   python %s /tmp/image1.fits /tmp/image2.fits --classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --outputcsv=/tmp/output.csv
@@ -74,7 +75,16 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
     else:
         options = opts
 
-    imageFilenames = options.image
+    if options.fileoffiles:
+        imageFilenames = []
+        for f in options.image:
+            with open(f) as fp:
+                content = fp.readlines()
+                content = [filename.strip() for filename in content]
+            imageFilenames += content
+    else:
+        imageFilenames = options.image
+
     fitsExtension = int(options.fitsextension)
 
     objectDictPS1 = getRBValues(imageFilenames, options.classifier, extension = fitsExtension, keepfilename = options.keepfilename)
