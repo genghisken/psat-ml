@@ -31,11 +31,11 @@ import sys
 __doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
 from docopt import docopt
 import os, MySQLdb, shutil, re, csv, subprocess
-from gkutils.commonutils import Struct, cleanOptions, dbConnect, doRsync
-from datetime import datetime
-from datetime import timedelta
+from gkutils.commonutils import Struct, cleanOptions, dbConnect, splitList, parallelProcess
+# 2023-04-03 KWS We need to have makeATLASStamps on the PYTHONPATH.
+from makeATLASStamps import doRsync
+import datetime
 from collections import defaultdict
-from gkmultiprocessingUtils import *
 
 STAMPSTORM04 = "/atlas/bin/stampstorm04"
 LOG_FILE_LOCATION = '/' + os.uname()[1].split('.')[0] + '/tc_logs/'

@@ -2,7 +2,7 @@
 """Run the Keras/Tensorflow classifier.
 
 Usage:
-  %s <image>... [--classifier=<classifier>] [--outputcsv=<outputcsv>] [--fitsextension=<fitsextension>]
+  %s <image>... [--classifier=<classifier>] [--outputcsv=<outputcsv>] [--fitsextension=<fitsextension>] [--keepfilename]
   %s (-h | --help)
   %s --version
 
@@ -12,7 +12,7 @@ Options:
   --classifier=<classifier>          Classifier file.
   --outputcsv=<outputcsv>            Output file.
   --fitsextension=<fitsextension>    Which default FITS extension? [default: 0]
-  --update                           Update the database.
+  --keepfilename                     Keep the filename - don't truncate it.
 
 Example:
   python %s /tmp/image1.fits /tmp/image2.fits --classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --outputcsv=/tmp/output.csv
@@ -29,7 +29,7 @@ from kerasTensorflowClassifier import create_model, load_data
 from collections import defaultdict, OrderedDict
 
 
-def getRBValues(imageFilenames, classifier, extension = 0):
+def getRBValues(imageFilenames, classifier, extension = 0, keepfilename = None):
     num_classes = 2
     image_dim = 20
     numImages = len(imageFilenames)
@@ -54,7 +54,10 @@ def getRBValues(imageFilenames, classifier, extension = 0):
     # Collect the predictions from all the files, but aggregate into objects
     objectDict = defaultdict(list)
     for i in range(len(pred[:,1])):
-        candidate = os.path.basename(imageFilenames[i]).split('.')[0]
+        if keepfilename:
+            candidate = os.path.basename(imageFilenames[i])
+        else:
+            candidate = os.path.basename(imageFilenames[i]).split('.')[0]
         # Each candidate will end up with a list of predictions.
         objectDict[candidate].append(pred[i,1])
 
@@ -74,7 +77,7 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
     imageFilenames = options.image
     fitsExtension = int(options.fitsextension)
 
-    objectDictPS1 = getRBValues(imageFilenames, options.classifier, extension = fitsExtension)
+    objectDictPS1 = getRBValues(imageFilenames, options.classifier, extension = fitsExtension, keepfilename = options.keepfilename)
     objectScores = defaultdict(dict)
     for k, v in list(objectDictPS1.items()):
         objectScores[k]['ps1'] = np.array(v)
