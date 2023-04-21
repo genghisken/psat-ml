@@ -3,7 +3,7 @@
 The cutouts are already done.
 
 Usage:
-  %s <configFile> [--stampLocation=<location>] [--test]
+  %s <configFile> [--stampLocation=<location>] [--test] [--imageRoot=<imageRoot>]
   %s (-h | --help)
   %s --version
 
@@ -11,18 +11,18 @@ Options:
   -h --help                    Show this screen.
   --version                    Show version.
   --test                       Just do a quick test.
-  --stampLocation=<location>   Default place to store the stamps. [default: /tmp]
+  --stampLocation=<location>   Default place to store the stamps [default: /tmp].
+  --imageRoot=<imageHome>      Default place to store the stamps [default: /db0/images].
 
 """
 import sys
 __doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0])
 from docopt import docopt
 import os, MySQLdb, shutil, re, csv, subprocess
-from gkutils.commonutils import Struct, cleanOptions, dbConnect, doRsync
+from gkutils.commonutils import Struct, cleanOptions, dbConnect, parallelProcess, splitList
 from datetime import datetime
 from datetime import timedelta
 from collections import defaultdict
-from gkmultiprocessingUtils import *
 
 
 
@@ -116,7 +116,7 @@ def getImagesForObject(conn, objectId):
     return resultSet
 
 
-def getTrainingSetImages(conn, imageHome = '/psdb2/images/ps13pi/'):
+def getTrainingSetImages(conn, options, database):
     goodObjects = getGoodPS1Objects(conn, listId = 5)
 
     print("Number of good objects = ", len(goodObjects))
@@ -131,7 +131,7 @@ def getTrainingSetImages(conn, imageHome = '/psdb2/images/ps13pi/'):
 
         for image in images:
             mjd = image['image_filename'].split('_')[1].split('.')[0]
-            imageName = imageHome+mjd+'/' + image['image_filename']+'.fits'
+            imageName = options.imageRoot + '/' + database + '/' + mjd + '/' + image['image_filename']+'.fits'
             goodImages.append(imageName)
 
     # 2018-07-27 KWS Sort the images in reverse order (most recent at the top).
@@ -148,7 +148,7 @@ def getTrainingSetImages(conn, imageHome = '/psdb2/images/ps13pi/'):
 
         for image in images:
             mjd = image['image_filename'].split('_')[1].split('.')[0]
-            imageName = imageHome+mjd+'/' + image['image_filename']+'.fits'
+            imageName = options.imageRoot + '/' + database + '/' + mjd + '/' + image['image_filename']+'.fits'
             badImages.append(imageName)
 
 
@@ -210,7 +210,7 @@ def getPS1TrainingSetCutouts(opts):
         return 1
 
 
-    images = getTrainingSetImages(conn)
+    images = getTrainingSetImages(conn, options, database)
 
     writePS1GoodBadFiles(options.stampLocation, images)
 
