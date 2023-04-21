@@ -24,10 +24,17 @@ class TargetImage(object):
         self.objectID = self.fitsFile.split("_")[0]
         self.extent = extent
         pathAndFitsFile = fitsFile 
-        try:
-            hdulist = pyfits.open(pathAndFitsFile)
-        except OSError as e:
-            print("Problem opening %s" % pathAndFitsFile)
+
+        # 2023-04-05 KWS Temporarily removed this error catch. Stops error messages being spewed to the screen
+        #                but the real solution is to fix the way the good and bad data is loaded, which is
+        #                extremely inefficient.
+        #try:
+        #    hdulist = pyfits.open(pathAndFitsFile)
+        #except IOError as e:
+        #    print("Problem opening %s" % pathAndFitsFile)
+        #    raise IOError
+
+        hdulist = pyfits.open(pathAndFitsFile)
 
         data = hdulist[extension].data # think this reads in x and y opposite to ds9 see docs
         maxX = np.shape(data[0])
