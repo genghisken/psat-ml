@@ -2,7 +2,7 @@
 """Run the Keras/Tensorflow classifier.
 
 Usage:
-  %s <image>... [--classifier=<classifier>] [--outputcsv=<outputcsv>] [--fitsextension=<fitsextension>] [--keepfilename] [--fileoffiles]
+  %s <image>... [--classifier=<classifier>] [--outputcsv=<outputcsv>] [--fitsextension=<fitsextension>] [--keepfilename] [--fileoffiles] [--imagelocation=<imagelocation>]
   %s (-h | --help)
   %s --version
 
@@ -14,6 +14,7 @@ Options:
   --fitsextension=<fitsextension>    Which default FITS extension? [default: 0]
   --keepfilename                     Keep the filename - don't truncate it.
   --fileoffiles                      Image file is a file of files. Allows many thousands of files to be read, avoiding command line constraints.
+  --imagelocation=<imagelocation>    Location of the images if not specified in the actual filename.
 
 Example:
   python %s /tmp/image1.fits /tmp/image2.fits --classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --outputcsv=/tmp/output.csv
@@ -30,7 +31,7 @@ from kerasTensorflowClassifier import create_model, load_data
 from collections import defaultdict, OrderedDict
 
 
-def getRBValues(imageFilenames, classifier, extension = 0, keepfilename = None):
+def getRBValues(imageFilenames, classifier, extension = 0, keepfilename = None, imageLocation = None):
     num_classes = 2
     image_dim = 20
     numImages = len(imageFilenames)
@@ -39,6 +40,8 @@ def getRBValues(imageFilenames, classifier, extension = 0, keepfilename = None):
     # loop through and fill the above matrix, remembering to correctly scale the
     # raw pixels for the specified sparse filter.
     for j,imageFilename in enumerate(imageFilenames):
+        if imageLocation is not None and '/' not in imageFilename:
+            imageFilename = imageLocation + '/' + imageFilename
         print(imageFilename)
         vector = np.nan_to_num(TargetImage(imageFilename, extension=extension).signPreserveNorm())
         #print vector
@@ -87,7 +90,7 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
 
     fitsExtension = int(options.fitsextension)
 
-    objectDictPS1 = getRBValues(imageFilenames, options.classifier, extension = fitsExtension, keepfilename = options.keepfilename)
+    objectDictPS1 = getRBValues(imageFilenames, options.classifier, extension = fitsExtension, keepfilename = options.keepfilename, imageLocation = options.imagelocation)
     objectScores = defaultdict(dict)
     for k, v in list(objectDictPS1.items()):
         objectScores[k]['ps1'] = np.array(v)
