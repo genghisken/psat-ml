@@ -3,7 +3,7 @@
 The cutouts are already done.
 
 Usage:
-  %s <configFile> [--stampLocation=<location>] [--test] [--imageRoot=<imageRoot>]
+  %s <configFile> [--stampLocation=<location>] [--test] [--imageRoot=<imageRoot>] [--badrb=<badrb>] [--flagdate=<flagdate>] [--goodlist=<goodlist>] [--badlist=<badlist>]
   %s (-h | --help)
   %s --version
 
@@ -12,7 +12,11 @@ Options:
   --version                    Show version.
   --test                       Just do a quick test.
   --stampLocation=<location>   Default place to store the stamps [default: /tmp].
-  --imageRoot=<imageHome>      Default place to store the stamps [default: /db0/images].
+  --imageRoot=<imageHome>      Location of the input images [default: /db0/images].
+  --badrb=<badrb>              Set the bad RB threshold [default: 0.01].
+  --flagdate=<flagdate>        Flag date before which we will not request images, e.g. because optics have changed [default: 20100101].
+  --goodlist=<goodlist>        Good list number - could be 2 (good) or 5 (attic) or 6 (movers) [default: 2].
+  --badlist=<badlist>          Bad list number [default: 0].
 
 """
 import sys
@@ -30,7 +34,7 @@ from collections import defaultdict
 # Get the objects we've collected into the attic over the years
 # which are labelled as movers by the ephemeric check software
 
-def getGoodPS1Objects(conn, listId):
+def getGoodPS1Objects(conn, listId, flagDate = '2010-01-01'):
     """
     Get "good" objects
     """
@@ -47,10 +51,12 @@ def getGoodPS1Objects(conn, listId):
                and observation_status = 'mover'
                and confidence_factor is not null
                and (comment like 'EPH:%%' or comment like 'MPC:%%')
+               and followup_flag_date > %s
              union
             select id from tcs_transient_objects
              where detection_list_id = 2
-        """, (listId,))
+               and followup_flag_date > %s
+        """, (listId, flagDate, flagDate,))
         resultSet = cursor.fetchall ()
 
         cursor.close ()
@@ -61,7 +67,7 @@ def getGoodPS1Objects(conn, listId):
     return resultSet
 
 
-def getBadPS1Objects(conn, listId, rbThreshold = 0.1):
+def getBadPS1Objects(conn, listId, rbThreshold = 0.1, flagDate = '2010-01-01'):
     """
     Get "bad" objects
     """
@@ -76,7 +82,8 @@ def getBadPS1Objects(conn, listId, rbThreshold = 0.1):
              where confidence_factor < %s 
                and detection_list_id = %s
                and sherlockClassification is not null
-        """, (rbThreshold, listId,))
+               and followup_flag_date > %s
+        """, (rbThreshold, listId, flagDate,))
         resultSet = cursor.fetchall ()
 
         cursor.close ()
@@ -117,7 +124,15 @@ def getImagesForObject(conn, objectId):
 
 
 def getTrainingSetImages(conn, options, database):
-    goodObjects = getGoodPS1Objects(conn, listId = 5)
+
+    if options.flagdate is not None:
+        try:
+            dateThreshold = '%s-%s-%s' % (options.flagdate[0:4], options.flagdate[4:6], options.flagdate[6:8])
+        except:
+            dateThreshold = '2010-01-01'
+
+
+    goodObjects = getGoodPS1Objects(conn, listId = int(options.goodlist), flagDate = dateThreshold)
 
     print("Number of good objects = ", len(goodObjects))
     class ImageSet:
@@ -139,7 +154,7 @@ def getTrainingSetImages(conn, options, database):
     goodImages.sort(reverse=True)
     imgs.good = goodImages
 
-    badObjects = getBadPS1Objects(conn, listId = 0)
+    badObjects = getBadPS1Objects(conn, listId = int(options.badlist), rbThreshold = float(options.badrb), flagDate = dateThreshold)
     print("Number of bad objects = ", len(badObjects))
     
     badImages = []
