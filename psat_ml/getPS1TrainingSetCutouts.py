@@ -3,7 +3,7 @@
 The cutouts are already done.
 
 Usage:
-  %s <configFile> [--stampLocation=<location>] [--test] [--imageRoot=<imageRoot>] [--badrb=<badrb>] [--flagdate=<flagdate>] [--goodlist=<goodlist>] [--badlist=<badlist>]
+  %s <configFile> [--stampLocation=<location>] [--test] [--imageRoot=<imageRoot>] [--badrb=<badrb>] [--flagdate=<flagdate>] [--goodlist=<goodlist>] [--badlist=<badlist>] [--imagetype=<imagetype>]
   %s (-h | --help)
   %s --version
 
@@ -17,10 +17,14 @@ Options:
   --flagdate=<flagdate>        Flag date before which we will not request images, e.g. because optics have changed [default: 20100101].
   --goodlist=<goodlist>        Good list number - could be 2 (good) or 5 (attic) or 6 (movers) [default: 2].
   --badlist=<badlist>          Bad list number [default: 0].
+  --imagetype=<imagetype>      Image type (good | bad | all) [default: all].
+
+E.g.:
+  %s config_ps2_readonly.yaml --imageRoot=/db0/images --badrb=0.05 --flagdate=20211001 --stampLocation=/export/dbjbod5/db0jbod05/training/ps2
 
 """
 import sys
-__doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0])
+__doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
 from docopt import docopt
 import os, MySQLdb, shutil, re, csv, subprocess
 from gkutils.commonutils import Struct, cleanOptions, dbConnect, parallelProcess, splitList
@@ -132,42 +136,47 @@ def getTrainingSetImages(conn, options, database):
             dateThreshold = '2010-01-01'
 
 
-    goodObjects = getGoodPS1Objects(conn, listId = int(options.goodlist), flagDate = dateThreshold)
-
-    print("Number of good objects = ", len(goodObjects))
     class ImageSet:
         pass
 
     imgs = ImageSet()
 
     goodImages = []
-    for candidate in goodObjects:
-        images = getImagesForObject(conn, candidate['id'])
+    badImages = []
 
-        for image in images:
-            mjd = image['image_filename'].split('_')[1].split('.')[0]
-            imageName = options.imageRoot + '/' + database + '/' + mjd + '/' + image['image_filename']+'.fits'
-            goodImages.append(imageName)
+    if options.imagetype in ['all', 'good']:
+        goodObjects = getGoodPS1Objects(conn, listId = int(options.goodlist), flagDate = dateThreshold)
+        print("Number of good objects = ", len(goodObjects))
 
-    # 2018-07-27 KWS Sort the images in reverse order (most recent at the top).
-    #                This should make reading the data from disk quicker.
-    goodImages.sort(reverse=True)
+        for candidate in goodObjects:
+            images = getImagesForObject(conn, candidate['id'])
+
+            for image in images:
+                mjd = image['image_filename'].split('_')[1].split('.')[0]
+                imageName = options.imageRoot + '/' + database + '/' + mjd + '/' + image['image_filename']+'.fits'
+                goodImages.append(imageName)
+
+        # 2018-07-27 KWS Sort the images in reverse order (most recent at the top).
+        #                This should make reading the data from disk quicker.
+        goodImages.sort(reverse=True)
+
     imgs.good = goodImages
 
-    badObjects = getBadPS1Objects(conn, listId = int(options.badlist), rbThreshold = float(options.badrb), flagDate = dateThreshold)
-    print("Number of bad objects = ", len(badObjects))
     
-    badImages = []
-    for candidate in badObjects:
-        images = getImagesForObject(conn, candidate['id'])
+    if options.imagetype in ['all', 'bad']:
+        badObjects = getBadPS1Objects(conn, listId = int(options.badlist), rbThreshold = float(options.badrb), flagDate = dateThreshold)
+        print("Number of bad objects = ", len(badObjects))
 
-        for image in images:
-            mjd = image['image_filename'].split('_')[1].split('.')[0]
-            imageName = options.imageRoot + '/' + database + '/' + mjd + '/' + image['image_filename']+'.fits'
-            badImages.append(imageName)
+        for candidate in badObjects:
+            images = getImagesForObject(conn, candidate['id'])
 
+            for image in images:
+                mjd = image['image_filename'].split('_')[1].split('.')[0]
+                imageName = options.imageRoot + '/' + database + '/' + mjd + '/' + image['image_filename']+'.fits'
+                badImages.append(imageName)
 
-    badImages.sort(reverse=True)
+        badImages.sort(reverse=True)
+
     imgs.bad = badImages
 
     return imgs
@@ -185,14 +194,17 @@ def getGoodBadFiles(path):
     print("Generated good and bad files")
 
 def writePS1GoodBadFiles(path, images):
-    with open(path+'/good.txt', 'w') as good:
-        for file in images.good:
-            good.write(file+'\n')
-        
 
-    with open(path+'/bad.txt', 'w') as bad:
-        for file in images.bad:
-            bad.write(file+'\n')
+    if images.good:
+        with open(path+'/good.txt', 'w') as good:
+            for file in images.good:
+                good.write(file+'\n')
+
+    if images.bad:
+        with open(path+'/bad.txt', 'w') as bad:
+            for file in images.bad:
+                bad.write(file+'\n')
+
     print("Generated good and bad files")
 
 
