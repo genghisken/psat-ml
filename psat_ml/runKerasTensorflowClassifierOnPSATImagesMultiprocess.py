@@ -48,6 +48,9 @@ def worker(num, db, objectListFragment, dateAndTime, firstPass, miscParameters, 
 
     # Override the full candidate list with a sublist of candidates.
     options.candidate = [str(x['id']) for x in objectListFragment]
+    # If we've read the candidates from a file, don't try to open the file again!
+    options.candidatesinfiles = None
+
     objectsForUpdate = runKerasTensorflowClassifier(options, processNumber = num)
 
     # Write the objects for update onto a Queue object
