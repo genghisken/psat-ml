@@ -38,7 +38,8 @@ from collections import defaultdict
 # Get the objects we've collected into the attic over the years
 # which are labelled as movers by the ephemeric check software
 
-def getGoodPS1Objects(conn, listId, flagDate = '2010-01-01'):
+# 2023-07-08 KWS Set a light RB threshold to clip out obviously bad movers.
+def getGoodPS1Objects(conn, listId, flagDate = '2010-01-01', rbThreshold = 0.05):
     """
     Get "good" objects
     """
@@ -56,11 +57,12 @@ def getGoodPS1Objects(conn, listId, flagDate = '2010-01-01'):
                and confidence_factor is not null
                and (comment like 'EPH:%%' or comment like 'MPC:%%')
                and followup_flag_date > %s
+               and confidence_factor > %s
              union
             select id from tcs_transient_objects
              where detection_list_id = 2
                and followup_flag_date > %s
-        """, (listId, flagDate, flagDate,))
+        """, (listId, flagDate, rbThreshold, flagDate,))
         resultSet = cursor.fetchall ()
 
         cursor.close ()
@@ -71,7 +73,7 @@ def getGoodPS1Objects(conn, listId, flagDate = '2010-01-01'):
     return resultSet
 
 
-def getBadPS1Objects(conn, listId, rbThreshold = 0.1, flagDate = '2010-01-01'):
+def getBadPS1Objects(conn, listId, rbThreshold = 0.05, flagDate = '2010-01-01'):
     """
     Get "bad" objects
     """
