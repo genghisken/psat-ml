@@ -34,7 +34,7 @@ __doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.arg
 from docopt import docopt
 from gkutils.commonutils import Struct, cleanOptions, readGenericDataFile, dbConnect, splitList, parallelProcess
 import sys, csv, os, datetime
-from runKerasTensorflowClassifierOnATLASImages import getObjectsByList, runKerasTensorflowClassifier, updateTransientRBValue
+from runKerasTensorflowClassifierOnPSATImages import getObjectsByList, runKerasTensorflowClassifier, updateTransientRBValue
 
 
 def worker(num, db, objectListFragment, dateAndTime, firstPass, miscParameters, q):
