@@ -2,7 +2,7 @@
 """Run the Keras/Tensorflow classifier on Pan-STARRS and ATLAS images.
 
 Usage:
-  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--loglocation=<loglocation>] [--logprefix=<logprefix>]
+  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--loglocation=<loglocation>] [--logprefix=<logprefix>] [--candidatesinfiles]
   %s (-h | --help)
   %s --version
 
@@ -23,14 +23,17 @@ Options:
   --loglocation=<loglocation>        Log file location [default: /tmp/]
   --logprefix=<logprefix>            Log prefix [default: ml_keras_]
   --update                           Update the database.
+  --candidatesinfiles                Interpret the inline candidate IDs as a files containing candidates.
 
 Example:
   python %s ~/config.pso3.gw.warp.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --listid=4 --outputcsv=/tmp/pso3_list_4.csv
   python %s ../ps13pi/config/config.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --listid=4 --outputcsv=/tmp/ps13pi_list_4.csv
+  python %s /usr/local/ps1code/gitrelease/atlas/config/config4_db1_readonly.yaml /tmp/candidates.txt --hkoclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/02a_asteroids_good330000_bad990000_s3_20230405_classifier.h5 --mloclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/asteroids136521_good13479_bad450000_20x20_skew3_signpreserve_20200819mlo_classifier.h5 --sthclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/03a_asteroids_good320000_bad960000_s3_20230303_classifier.h5 --chlclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/04a_asteroids_good380000_bad1140000_s3_20230213_classifier.h5 --outputcsv=/db4/tc_logs/atlas4/ml_tf_keras_20230502_1017.csv --update --candidatesinfiles
+  python %s ../../ps13pi/config/config.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --ps2classifier=/data/db0jbod05/training/ps2/ps2_good95824_bad287472_s3_20230707_20x20_classifier.h5 --listid=4 --imageroot=/db0/images/ --loglocation=/db0/tc_logs/ps13pi/ --update
 
 """
 import sys
-__doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
+__doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
 from docopt import docopt
 from gkutils.commonutils import Struct, cleanOptions, readGenericDataFile, dbConnect, splitList, parallelProcess
 import sys, csv, os, datetime
@@ -104,7 +107,16 @@ def runKerasTensorflowClassifierMultiprocess(opts):
     objectList = []
     # if candidates are specified in the options, then override the list.
     if len(options.candidate) > 0:
-        objectList = [{'id': int(candidate)} for candidate in options.candidate]
+        if options.candidatesinfiles:
+            candidates = []
+            for f in options.candidate:
+                with open(f) as fp:
+                    content = fp.readlines()
+                    content = [c.strip() for c in content]
+                candidates += content
+            objectList = [{'id': int(candidate)} for candidate in candidates]
+        else:
+            objectList = [{'id': int(candidate)} for candidate in options.candidate]
     else:
         objectList = getObjectsByList(conn, database, listId = int(options.listid), ps1Data = ps1Data)
 
