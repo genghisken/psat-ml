@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-"""Run the Keras/Tensorflow classifier.
+"""Run the Keras/Tensorflow classifier on Pan-STARRS and ATLAS images.
 
 Usage:
-  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>]
+  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>]
   %s (-h | --help)
   %s --version
 
@@ -14,7 +14,8 @@ Options:
   --mloclassifier=<mloclassifier>    MLO Classifier file.
   --sthclassifier=<sthclassifier>    STH Classifier file.
   --chlclassifier=<chlclassifier>    CHL Classifier file.
-  --ps1classifier=<mloclassifier>    PS1 Classifier file. This option will cause the HKO and MLO classifiers to be ignored.
+  --ps1classifier=<ps1classifier>    PS1 Classifier file. This option will cause the ATLAS classifiers to be ignored.
+  --ps2classifier=<ps2classifier>    PS2 Classifier file. This option will cause the ATLAS classifiers to be ignored.
   --outputcsv=<outputcsv>            Output file [default: /tmp/update_eyeball_scores.csv].
   --imageroot=<imageroot>            Root location of the actual images [default: /db4/images/].
   --update                           Update the database.
@@ -87,7 +88,7 @@ def getImages(conn, dbName, objectList, imageRoot='/psdb3/images/', ps1Data = Fa
             #                mismatch.
             if ps1Data:
                 cursor.execute ("""
-                select concat(%s ,%s,'/',truncate(mjd_obs,0), '/', image_filename,'.fits') filename from tcs_postage_stamp_images
+                select concat(%s ,%s,'/',truncate(mjd_obs,0), '/', image_filename,'.fits') as filename, filter from tcs_postage_stamp_images
                  where image_filename like concat(%s, '%%')
                    and image_filename not like concat(%s, '%%4300000000%%')
                    and image_type = 'diff'
@@ -97,7 +98,7 @@ def getImages(conn, dbName, objectList, imageRoot='/psdb3/images/', ps1Data = Fa
                 """, (imageRoot, dbName, row['id'], row['id']))
             else:
                 cursor.execute ("""
-                select concat(%s ,%s,'/',if(instr(pss_filename,'skycell'),truncate(mjd_obs,0),substr(pss_filename,4,5)), '/', image_filename,'.fits') filename from tcs_postage_stamp_images
+                select concat(%s ,%s,'/',if(instr(pss_filename,'skycell'),truncate(mjd_obs,0),substr(pss_filename,4,5)), '/', image_filename,'.fits') as filename, filter from tcs_postage_stamp_images
                  where image_filename like concat(%s, '%%')
                    and image_filename not like concat(%s, '%%4300000000%%')
                    and image_type = 'diff'
@@ -249,7 +250,7 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
 
     # 2018-07-31 KWS We have PS1 data. Don't bother with the HKO/MLO ATLAS data.
     ps1Data = False
-    if options.ps1classifier:
+    if options.ps1classifier or options.ps2classifier:
         ps1Data = True
 
     if options.listid is not None:
@@ -280,15 +281,47 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
             return []
 
     if ps1Data:
-        objectDictPS1 = getRBValues([f['filename'] for f in imageFilenames], options.ps1classifier, extension = 1)
+        # 2023-07-24 KWS Split the PS1 and PS2 images like the ATLAS ones.
+        #                The filter column can easily be used for this.
+        ps1Filenames = []
+        for row in imageFilenames:
+            if '00000' in row['filter']:
+                ps1Filenames.append(row['filename'])
+
+        ps2Filenames = []
+        for row in imageFilenames:
+            if '00002' in row['filter']:
+                ps2Filenames.append(row['filename'])
+
+
+        if ps1Filenames:
+            objectDictPS1 = getRBValues(ps1Filenames, options.ps1classifier, extension = 1)
+        if ps2Filenames:
+            objectDictPS2 = getRBValues(ps2Filenames, options.ps2classifier, extension = 1)
+
+        # Now we have two dictionaries. Combine them.
+
         objectScores = defaultdict(dict)
-        for k, v in list(objectDictPS1.items()):
-            objectScores[k]['ps1'] = np.array(v)
+
+        if ps1Filenames:
+            for k, v in list(objectDictPS1.items()):
+                objectScores[k]['ps1'] = np.array(v)
+        if ps2Filenames:
+            for k, v in list(objectDictPS2.items()):
+                objectScores[k]['ps2'] = np.array(v)
+
         finalScores = {}
 
         objects = list(objectScores.keys())
         for object in objects:
-            finalScores[object] = np.median(objectScores[object]['ps1'])
+            objectKeys = objectScores[object].keys()
+            lengths = {}
+            for key in objectKeys:
+                #print(object, key, objectScores[object][key]) 
+                lengths[key] = len(objectScores[object][key])
+            finalScores[object] = np.median(objectScores[object][max(lengths, key=lambda key: lengths[key])])
+
+
     else:
         # Split the images into HKO and MLO data so we can apply the HKO and MLO machines separately.
         hkoFilenames = []
@@ -307,13 +340,6 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
         for row in imageFilenames:
             if '04a' in row['filename']:
                 chlFilenames.append(row['filename'])
-
-        #filename = 'hko_57966_20x20_skew3_signpreserve_f77475b232425.mat'
-        #train_data, test_data, image_dim = load_data(filename)
-        #x_test = test_data[0]
-
-        #hkoClassifier = '/home/kws/keras/hko_57966_20x20_skew3_signpreserve_f77475b232425.model.best.hdf5'
-        #mloClassifier = '/home/kws/keras/atlas_mlo_57925_20x20_skew3_signpreserve_f331184b993662.model.best.hdf5'
 
         if hkoFilenames:
             objectDictHKO = getRBValues(hkoFilenames, options.hkoclassifier)
@@ -355,31 +381,6 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
             finalScores[object] = np.median(objectScores[object][max(lengths, key=lambda key: lengths[key])])
 
 
-
-
-            #if len(objectScores[object]) > 1 and len(objectScores[object]) <= 2:
-            #    print (objectScores[object])
-            #    hkoLen = len(objectScores[object]['hko'])
-            #    mloLen = len(objectScores[object]['mlo'])
-            #    lengths = {'mlo': mloLen, 'hko': hkoLen}
-            #    # Use the key with the largest number of objects in it.
-            #    finalScores[object] = np.median(objectScores[object][max(lengths, key=lambda key: lengths[key])])
-            #elif len(objectScores[object]) > 2:
-            #    hkoLen = len(objectScores[object]['hko'])
-            #    mloLen = len(objectScores[object]['mlo'])
-            #    sthLen = len(objectScores[object]['sth'])
-            #    lengths = {'mlo': mloLen, 'hko': hkoLen, 'sth': sthLen}
-            #    # Use the key with the largest number of objects in it.
-            #    finalScores[object] = np.median(objectScores[object][max(lengths, key=lambda key: lengths[key])])
-            #else:
-            #    try:
-            #        finalScores[object] = np.median(objectScores[object]['hko'])
-            #    except KeyError as e:
-            #        try:
-            #            finalScores[object] = np.median(objectScores[object]['mlo'])
-            #        except KeyError as e:
-            #            finalScores[object] = np.median(objectScores[object]['sth'])
-
     finalScoresSorted = OrderedDict(sorted(list(finalScores.items()), key=lambda t: t[1]))
 
     if options.outputcsv is not None:
@@ -395,7 +396,8 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
         processSuffix = ''
 
         if processNumber is not None:
-            processSuffix = '_%02d' % processNumber
+            pid = os.getpid()
+            processSuffix = '_%d_%03d' % (pid, processNumber)
 
         # Generate the insert statements
         with open('%s%s%s' % (prefix, processSuffix, suffix), 'w') as f:

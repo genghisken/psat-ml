@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-"""Run the Keras/Tensorflow classifier.
+"""Run the Keras/Tensorflow classifier on Pan-STARRS and ATLAS images.
 
 Usage:
-  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>]
+  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--loglocation=<loglocation>] [--logprefix=<logprefix>]
   %s (-h | --help)
   %s --version
 
@@ -14,11 +14,14 @@ Options:
   --mloclassifier=<mloclassifier>    MLO Classifier file.
   --sthclassifier=<sthclassifier>    STH Classifier file.
   --chlclassifier=<chlclassifier>    CHL Classifier file.
-  --ps1classifier=<mloclassifier>    PS1 Classifier file. This option will cause the HKO and MLO classifiers to be ignored.
+  --ps1classifier=<ps1classifier>    PS1 Classifier file. This option will cause the ATLAS classifiers to be ignored.
+  --ps2classifier=<ps2classifier>    PS2 Classifier file. This option will cause the ATLAS classifiers to be ignored.
   --outputcsv=<outputcsv>            Output file.
   --imageroot=<imageroot>            Root location of the actual images [default: /psdb3/images/].
   --tablename=<tablename>            Database table name to update [default: atlas_diff_objects].
   --columnname=<columnname>          Database column name to update [default: zooniverse_score].
+  --loglocation=<loglocation>        Log file location [default: /tmp/]
+  --logprefix=<logprefix>            Log prefix [default: ml_keras_]
   --update                           Update the database.
 
 Example:
@@ -30,18 +33,15 @@ import sys
 __doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
 from docopt import docopt
 from gkutils.commonutils import Struct, cleanOptions, readGenericDataFile, dbConnect, splitList, parallelProcess
-import sys, csv, os
+import sys, csv, os, datetime
 from runKerasTensorflowClassifierOnATLASImages import getObjectsByList, runKerasTensorflowClassifier, updateTransientRBValue
 
-LOG_FILE_LOCATION = '/' + os.uname()[1].split('.')[0] + '/tc_logs/'
-LOG_PREFIX = 'ml_keras_'
 
 def worker(num, db, objectListFragment, dateAndTime, firstPass, miscParameters, q):
     """thread worker function"""
     # Redefine the output to be a log file.
-    sys.stdout = open('%s%s_%s_%d.log' % (LOG_FILE_LOCATION, LOG_PREFIX, dateAndTime, num), "w")
-
     options = miscParameters[0]
+    sys.stdout = open('%s%s_%s_%d.log' % (options.loglocation, options.logprefix, dateAndTime, num), "w")
 
     # Override the full candidate list with a sublist of candidates.
     options.candidate = [str(x['id']) for x in objectListFragment]
