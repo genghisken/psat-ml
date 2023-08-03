@@ -32,14 +32,22 @@ def group_images(imageList):
             tti_pairs[id].append(item)
     return tti_pairs
 
-def noNorm(imageFile, path,  extent, extension):
-    return np.nan_to_num(TargetImage(path+imageFile, extent, extension).unravelObject())
+def noNorm(imageFile, path,  extent, extension, magic = None):
+    a=np.nan_to_num(TargetImage(path+imageFile, extent, extension).unravelObject())
+    if magic is not None:
+        # Replace all the magic numbers with zeros
+        a[a==magic] = 0
+    return a
 
-def signPreserveNorm(imageFile, path, extent, extension):
-    return np.nan_to_num(TargetImage(path+imageFile, extent, extension).signPreserveNorm())
+def signPreserveNorm(imageFile, path, extent, extension, magic = None):
+    a=np.nan_to_num(TargetImage(path+imageFile, extent, extension).signPreserveNorm())
+    if magic is not None:
+        # Replace all the magic numbers with zeros
+        a[a==magic] = 0
+    return a
 
-def bg_sub_signPreserveNorm(imageFile, path, extent, extension):
-    vec = signPreserveNorm(imageFile, path, extent, extension)
+def bg_sub_signPreserveNorm(imageFile, path, extent, extension, magic = None):
+    vec = signPreserveNorm(imageFile, path, extent, extension, magic = magic)
     image = np.reshape(vec, (20,20), order="F")
 
     image = gaussian_filter(image, 1)
@@ -51,7 +59,7 @@ def bg_sub_signPreserveNorm(imageFile, path, extent, extension):
     
     return np.ravel(image - dilated, order="F")
     
-def generate_vectors(imageList, path, extent, normFunc, extension):
+def generate_vectors(imageList, path, extent, normFunc, extension, magic = None):
     print("PATH = ", path)
     m = len(imageList)
     X = np.ones((m, 4*extent*extent))
@@ -59,15 +67,15 @@ def generate_vectors(imageList, path, extent, normFunc, extension):
     for i,imageFile in enumerate(imageList):
         try:
             if '/' in imageFile:
-                vector = normFunc(imageFile, "", extent, extension)
+                vector = normFunc(imageFile, "", extent, extension, magic = magic)
             else:
-                vector = normFunc(imageFile, path+"good/", extent, extension)
+                vector = normFunc(imageFile, path+"good/", extent, extension, magic = magic)
         except IOError:
             try:
-                vector = normFunc(imageFile, path+"bad/", extent, extension)
+                vector = normFunc(imageFile, path+"bad/", extent, extension, magic = magic)
             except IOError:
                 try:
-                    vector = normFunc(imageFile, path+"4_20160706/", extent, extension)
+                    vector = normFunc(imageFile, path+"4_20160706/", extent, extension, magic = magic)
                 except IOError:
                     print("[!] Exiting: Could not find %s" % imageFile)
                     exit(0)
@@ -79,12 +87,12 @@ def generate_key(file):
     #mjd = file.split("_")[1].split(".")[0]
     return id
     
-def process_examples(list, path, label, extent, normFunc, extension, trainingFraction=.75):
+def process_examples(list, path, label, extent, normFunc, extension, trainingFraction=.75, magic = None):
 
     m = len(list) # number of training examples
     np.random.seed(0)
     
-    X = generate_vectors(list, path, extent, normFunc, extension)
+    X = generate_vectors(list, path, extent, normFunc, extension, magic = magic)
     grouped_X = np.ones((np.shape(X)))
     grouped_dict = group_images(list[:])
     
@@ -203,6 +211,7 @@ def buildMLDataSet(opts):
     rotate = options.rotate
     print(rotate)
     norm = options.norm
+    magic = options.magic
     
     if posFile == None or outputFile == None:
        # print(parser.usage)
@@ -234,7 +243,7 @@ def buildMLDataSet(opts):
         imageList = imageFile_to_list(posFile)
         path = posFile.strip(posFile.split("/")[-1])
         print(path)
-        X = generate_vectors(imageList, path, extent, normFunc, extension)
+        X = generate_vectors(imageList, path, extent, normFunc, extension, magic = magic)
         #sio.savemat(outputFile, {"X": X, "images": imageList})
         hf = h5py.File(outputFile,'w')
         hf.create_dataset('X', data=X)
@@ -248,7 +257,7 @@ def buildMLDataSet(opts):
     m_pos = len(pos_list)
     path = posFile.strip(posFile.split("/")[-1])
     print(path)
-    pos_data = process_examples(pos_list, path, 1, extent, normFunc, extension)
+    pos_data = process_examples(pos_list, path, 1, extent, normFunc, extension, magic = magic)
     print("[+] %d positive examples processed." % m_pos)
     
     # process positive examples
@@ -259,7 +268,7 @@ def buildMLDataSet(opts):
     m_neg = len(neg_list)
     path = negFile.strip(negFile.split("/")[-1])
     print(path)
-    neg_data = process_examples(neg_list, path, 0, extent, normFunc, extension)
+    neg_data = process_examples(neg_list, path, 0, extent, normFunc, extension, magic = magic)
     print("[+] %d negative examples processed." % m_neg)
 
     print("[+] Building training set.")
@@ -288,7 +297,8 @@ def main():
                                    " -E <extension [default=1]>\n"+\
                                    " -s <skew factor [default=1]>\n"+\
                                    " -r <augment training data with rotation [optional]>\n"
-                                   " -N <normalisation function [default=signPreserveNorm]>")
+                                   " -N <normalisation function [default=signPreserveNorm]>\n"
+                                   " -m <integer mask magic number")
 
     parser.add_option("-p", dest="posFile", type="string", \
                       help="specify file listing positive examples")
@@ -306,6 +316,8 @@ def main():
                       help="specify whether to augment training set with roatated examples [optional]")
     parser.add_option("-N", dest="norm", type="string", \
                       help="specify normalisation function to apply to data [default=signPreserveNorm]")
+    parser.add_option("-m", dest="magic", type="int", \
+                      help="specify an integer magic number mask (e.g. -31415)")
 
     (options, args) = parser.parse_args()
 
