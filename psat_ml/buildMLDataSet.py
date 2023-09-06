@@ -32,22 +32,16 @@ def group_images(imageList):
             tti_pairs[id].append(item)
     return tti_pairs
 
-def noNorm(imageFile, path,  extent, extension, magic = None):
-    a=np.nan_to_num(TargetImage(path+imageFile, extent, extension).unravelObject())
-    if magic is not None:
-        # Replace all the magic numbers with zeros
-        a[a==magic] = 0
+def noNorm(imageFile, path,  extent, extension, magicNumber = None):
+    a=np.nan_to_num(TargetImage(path+imageFile, extent, extension, magicNumber = magicNumber).unravelObject())
     return a
 
-def signPreserveNorm(imageFile, path, extent, extension, magic = None):
-    a=np.nan_to_num(TargetImage(path+imageFile, extent, extension).signPreserveNorm())
-    if magic is not None:
-        # Replace all the magic numbers with zeros
-        a[a==magic] = 0
+def signPreserveNorm(imageFile, path, extent, extension, magicNumber = None):
+    a=np.nan_to_num(TargetImage(path+imageFile, extent, extension, magicNumber = magicNumber).signPreserveNorm())
     return a
 
-def bg_sub_signPreserveNorm(imageFile, path, extent, extension, magic = None):
-    vec = signPreserveNorm(imageFile, path, extent, extension, magic = magic)
+def bg_sub_signPreserveNorm(imageFile, path, extent, extension, magicNumber = None):
+    vec = signPreserveNorm(imageFile, path, extent, extension, magicNumber = magicNumber)
     image = np.reshape(vec, (20,20), order="F")
 
     image = gaussian_filter(image, 1)
@@ -59,7 +53,7 @@ def bg_sub_signPreserveNorm(imageFile, path, extent, extension, magic = None):
     
     return np.ravel(image - dilated, order="F")
     
-def generate_vectors(imageList, path, extent, normFunc, extension, magic = None):
+def generate_vectors(imageList, path, extent, normFunc, extension, magicNumber = None):
     print("PATH = ", path)
     m = len(imageList)
     X = np.ones((m, 4*extent*extent))
@@ -67,15 +61,15 @@ def generate_vectors(imageList, path, extent, normFunc, extension, magic = None)
     for i,imageFile in enumerate(imageList):
         try:
             if '/' in imageFile:
-                vector = normFunc(imageFile, "", extent, extension, magic = magic)
+                vector = normFunc(imageFile, "", extent, extension, magicNumber = magicNumber)
             else:
-                vector = normFunc(imageFile, path+"good/", extent, extension, magic = magic)
+                vector = normFunc(imageFile, path+"good/", extent, extension, magicNumber = magicNumber)
         except IOError:
             try:
-                vector = normFunc(imageFile, path+"bad/", extent, extension, magic = magic)
+                vector = normFunc(imageFile, path+"bad/", extent, extension, magicNumber = magicNumber)
             except IOError:
                 try:
-                    vector = normFunc(imageFile, path+"4_20160706/", extent, extension, magic = magic)
+                    vector = normFunc(imageFile, path+"4_20160706/", extent, extension, magicNumber = magicNumber)
                 except IOError:
                     print("[!] Exiting: Could not find %s" % imageFile)
                     exit(0)
@@ -87,12 +81,12 @@ def generate_key(file):
     #mjd = file.split("_")[1].split(".")[0]
     return id
     
-def process_examples(list, path, label, extent, normFunc, extension, trainingFraction=.75, magic = None):
+def process_examples(list, path, label, extent, normFunc, extension, trainingFraction=.75, magicNumber = None):
 
     m = len(list) # number of training examples
     np.random.seed(0)
     
-    X = generate_vectors(list, path, extent, normFunc, extension, magic = magic)
+    X = generate_vectors(list, path, extent, normFunc, extension, magicNumber = magicNumber)
     grouped_X = np.ones((np.shape(X)))
     grouped_dict = group_images(list[:])
     
@@ -212,6 +206,8 @@ def buildMLDataSet(opts):
     print(rotate)
     norm = options.norm
     magic = options.magic
+    if magic is not None:
+        magic = int(magic)
     
     if posFile == None or outputFile == None:
        # print(parser.usage)
@@ -243,7 +239,7 @@ def buildMLDataSet(opts):
         imageList = imageFile_to_list(posFile)
         path = posFile.strip(posFile.split("/")[-1])
         print(path)
-        X = generate_vectors(imageList, path, extent, normFunc, extension, magic = magic)
+        X = generate_vectors(imageList, path, extent, normFunc, extension, magicNumber = magicNumber)
         #sio.savemat(outputFile, {"X": X, "images": imageList})
         hf = h5py.File(outputFile,'w')
         hf.create_dataset('X', data=X)
@@ -257,7 +253,7 @@ def buildMLDataSet(opts):
     m_pos = len(pos_list)
     path = posFile.strip(posFile.split("/")[-1])
     print(path)
-    pos_data = process_examples(pos_list, path, 1, extent, normFunc, extension, magic = magic)
+    pos_data = process_examples(pos_list, path, 1, extent, normFunc, extension, magicNumber = magic)
     print("[+] %d positive examples processed." % m_pos)
     
     # process positive examples
@@ -268,7 +264,7 @@ def buildMLDataSet(opts):
     m_neg = len(neg_list)
     path = negFile.strip(negFile.split("/")[-1])
     print(path)
-    neg_data = process_examples(neg_list, path, 0, extent, normFunc, extension, magic = magic)
+    neg_data = process_examples(neg_list, path, 0, extent, normFunc, extension, magicNumber = magic)
     print("[+] %d negative examples processed." % m_neg)
 
     print("[+] Building training set.")

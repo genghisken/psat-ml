@@ -8,7 +8,8 @@ import numpy as np
 
 class TargetImage(object):
 
-    def __init__(self, fitsFile, extent=10, extension=1):
+    # 2023-08-21 KWS Introduced magicNumber for ATLAS integer images.
+    def __init__(self, fitsFile, extent=10, extension=1, magicNumber=None):
         """
             fitsFile: name of File from which to extract the image of the object
 
@@ -40,7 +41,11 @@ class TargetImage(object):
         maxX = np.shape(data[0])
         maxY = np.shape(data[1])
         imageCentre = (maxX[0]/2.0, maxY[0]/2.0) # changed to float division, shouldn't make a difference
-        self.object = data[int(imageCentre[0]-extent): int(imageCentre[0]+extent),int(imageCentre[0]-extent): int(imageCentre[0]+extent)]
+        image = data[int(imageCentre[0]-extent): int(imageCentre[0]+extent),int(imageCentre[0]-extent): int(imageCentre[0]+extent)]
+        if magicNumber is not None:
+            image[image==magicNumber] = 0
+        # print(image)
+        self.object = image
 
     def getObject(self):
         return self.object

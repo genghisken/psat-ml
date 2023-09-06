@@ -2,7 +2,7 @@
 """Run the Keras/Tensorflow classifier on Pan-STARRS and ATLAS images.
 
 Usage:
-  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--candidatesinfiles]
+  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--candidatesinfiles] [--magicNumber=<magicNumber>]
   %s (-h | --help)
   %s --version
 
@@ -22,6 +22,7 @@ Options:
   --tablename=<tablename>            Database table name to update [default: atlas_diff_objects].
   --columnname=<columnname>          Database column name to update [default: zooniverse_score].
   --candidatesinfiles                Interpret the inline candidate IDs as a files containing candidates.
+  --magicNumber=<magicNumber>        Magic number used to mask bad pixels in integer image files (ATLAS only).
 
 Example:
   python %s ~/config.pso3.gw.warp.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --listid=4 --outputcsv=/tmp/pso3_list_4.csv
@@ -192,7 +193,7 @@ def updateObjectRBFactors(conn, objectId, realBogusValue, tableName, columnName)
     return rowsUpdated
 
 
-def getRBValues(imageFilenames, classifier, extension = 0):
+def getRBValues(imageFilenames, classifier, extension = 0, magicNumber = None):
     num_classes = 2
     image_dim = 20
     numImages = len(imageFilenames)
@@ -201,7 +202,7 @@ def getRBValues(imageFilenames, classifier, extension = 0):
     # loop through and fill the above matrix, remembering to correctly scale the
     # raw pixels for the specified sparse filter.
     for j,imageFilename in enumerate(imageFilenames):
-        vector = np.nan_to_num(TargetImage(imageFilename, extension=extension).signPreserveNorm())
+        vector = np.nan_to_num(TargetImage(imageFilename, extension=extension, magicNumber = magicNumber).signPreserveNorm())
         #print vector
         #print vector.shape
         images[j,:,:,0] += np.reshape(vector, (image_dim,image_dim), order="F")
@@ -292,6 +293,10 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
             conn.close()
             return []
 
+    magicNumber = None
+    if options.magicNumber:
+        magicNumber = int(options.magicNumber)
+
     if ps1Data:
         # 2023-07-24 KWS Split the PS1 and PS2 images like the ATLAS ones.
         #                The filter column can easily be used for this.
@@ -354,13 +359,13 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
                 chlFilenames.append(row['filename'])
 
         if hkoFilenames:
-            objectDictHKO = getRBValues(hkoFilenames, options.hkoclassifier)
+            objectDictHKO = getRBValues(hkoFilenames, options.hkoclassifier, magicNumber = magicNumber)
         if mloFilenames:
-            objectDictMLO = getRBValues(mloFilenames, options.mloclassifier)
+            objectDictMLO = getRBValues(mloFilenames, options.mloclassifier, magicNumber = magicNumber)
         if sthFilenames:
-            objectDictSTH = getRBValues(sthFilenames, options.sthclassifier)
+            objectDictSTH = getRBValues(sthFilenames, options.sthclassifier, magicNumber = magicNumber)
         if chlFilenames:
-            objectDictCHL = getRBValues(chlFilenames, options.chlclassifier)
+            objectDictCHL = getRBValues(chlFilenames, options.chlclassifier, magicNumber = magicNumber)
 
         # Now we have two dictionaries. Combine them.
 
