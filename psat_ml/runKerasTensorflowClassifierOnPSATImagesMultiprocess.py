@@ -2,7 +2,7 @@
 """Run the Keras/Tensorflow classifier on Pan-STARRS and ATLAS images.
 
 Usage:
-  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--loglocation=<loglocation>] [--logprefix=<logprefix>] [--candidatesinfiles]
+  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--loglocation=<loglocation>] [--logprefix=<logprefix>] [--candidatesinfiles] [--magicNumber=<magicNumber>]
   %s (-h | --help)
   %s --version
 
@@ -24,6 +24,7 @@ Options:
   --logprefix=<logprefix>            Log prefix [default: ml_keras_]
   --update                           Update the database.
   --candidatesinfiles                Interpret the inline candidate IDs as a files containing candidates.
+  --magicNumber=<magicNumber>        Magic number used to mask bad pixels in integer image files (ATLAS only).
 
 Example:
   python %s ~/config.pso3.gw.warp.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --listid=4 --outputcsv=/tmp/pso3_list_4.csv
