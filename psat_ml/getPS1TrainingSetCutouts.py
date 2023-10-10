@@ -3,7 +3,7 @@
 The cutouts are already done.
 
 Usage:
-  %s <configFile> [--stampLocation=<location>] [--test] [--imageRoot=<imageRoot>] [--badrb=<badrb>] [--flagdate=<flagdate>] [--goodlist=<goodlist>] [--badlist=<badlist>] [--imagetype=<imagetype>]
+  %s <configFile> [--stampLocation=<location>] [--test] [--imageRoot=<imageRoot>] [--badrb=<badrb>] [--flagdate=<flagdate>] [--goodlist=<goodlist>] [--badlist=<badlist>] [--imagetype=<imagetype>] [--badaugment=<badaugment>]
   %s (-h | --help)
   %s --version
 
@@ -17,6 +17,7 @@ Options:
   --flagdate=<flagdate>        Flag date before which we will not request images, e.g. because optics have changed [default: 20100101].
   --goodlist=<goodlist>        Good list number - could be 2 (good) or 5 (attic) or 6 (movers) [default: 2].
   --badlist=<badlist>          Bad list number [default: 0].
+  --badaugment=<badaugment>    Bad curated custom list number (used to augment the bad list to improve detection of artefacts).
   --imagetype=<imagetype>      Image type (good | bad | all) [default: all].
 
 E.g.:
@@ -73,7 +74,7 @@ def getGoodPS1Objects(conn, listId, flagDate = '2010-01-01', rbThreshold = 0.05)
     return resultSet
 
 
-def getBadPS1Objects(conn, listId, rbThreshold = 0.05, flagDate = '2010-01-01'):
+def getBadPS1Objects(conn, listId, rbThreshold = 0.05, flagDate = '2010-01-01', augmentedList = None):
     """
     Get "bad" objects
     """
@@ -81,6 +82,8 @@ def getBadPS1Objects(conn, listId, rbThreshold = 0.05, flagDate = '2010-01-01'):
 
     try:
         cursor = conn.cursor (MySQLdb.cursors.DictCursor)
+
+        resultSet2 = None
 
         cursor.execute ("""
             select distinct o.id
@@ -91,6 +94,19 @@ def getBadPS1Objects(conn, listId, rbThreshold = 0.05, flagDate = '2010-01-01'):
                and followup_flag_date > %s
         """, (rbThreshold, listId, flagDate,))
         resultSet = cursor.fetchall ()
+
+        if augmentedList is not None:
+            # Add curated list of a particular type of junk to the garbage list
+            cursor.execute ("""
+                select g.transient_object_id
+                  from tcs_object_groups g
+                 where g.object_group_id = %s
+            """, (augmentedList,))
+            resultSet2 = cursor.fetchall ()
+
+        if resultSet2 is not None and len(resultSet2) > 0:
+            resultSet = resultSet + resultSet2
+
 
         cursor.close ()
 
