@@ -83,30 +83,32 @@ def getBadPS1Objects(conn, listId, rbThreshold = 0.05, flagDate = '2010-01-01', 
     try:
         cursor = conn.cursor (MySQLdb.cursors.DictCursor)
 
-        resultSet2 = None
-
-        cursor.execute ("""
-            select distinct o.id
-              from tcs_transient_objects o
-             where confidence_factor < %s 
-               and detection_list_id = %s
-               and sherlockClassification is not null
-               and followup_flag_date > %s
-        """, (rbThreshold, listId, flagDate,))
-        resultSet = cursor.fetchall ()
-
         if augmentedList is not None:
             # Add curated list of a particular type of junk to the garbage list
             cursor.execute ("""
-                select g.transient_object_id
+                select o.id
+                  from tcs_transient_objects o
+                 where confidence_factor < %s 
+                       and detection_list_id = %s
+                   and sherlockClassification is not null
+                   and followup_flag_date > %s
+                 union
+                select g.transient_object_id as id
                   from tcs_object_groups g
                  where g.object_group_id = %s
-            """, (augmentedList,))
-            resultSet2 = cursor.fetchall ()
+            """, (rbThreshold, listId, flagDate, int(augmentedList)))
 
-        if resultSet2 is not None and len(resultSet2) > 0:
-            resultSet = resultSet + resultSet2
+        else:
+            cursor.execute ("""
+                select distinct o.id
+                  from tcs_transient_objects o
+                 where confidence_factor < %s 
+                       and detection_list_id = %s
+                   and sherlockClassification is not null
+                   and followup_flag_date > %s
+            """, (rbThreshold, listId, flagDate,))
 
+        resultSet = cursor.fetchall ()
 
         cursor.close ()
 
@@ -128,13 +130,12 @@ def getImagesForObject(conn, objectId):
 
         cursor.execute ("""
             select i.image_filename
-            from tcs_postage_stamp_images i, tcs_transient_objects o
-            where i.image_filename like concat(o.id, '%%')
-            and i.image_filename not like concat(o.id, '%%4300000000%%')
+            from tcs_postage_stamp_images i
+            where i.image_filename like concat(%s, '%%')
+            and i.image_filename not like concat(%s, '%%4300000000%%')
             and pss_error_code = 0
             and i.image_type = 'diff'
-            and o.id = %s
-        """, (objectId,))
+        """, (objectId, objectId))
         resultSet = cursor.fetchall ()
 
         cursor.close ()
@@ -182,7 +183,7 @@ def getTrainingSetImages(conn, options, database):
 
     
     if options.imagetype in ['all', 'bad']:
-        badObjects = getBadPS1Objects(conn, listId = int(options.badlist), rbThreshold = float(options.badrb), flagDate = dateThreshold)
+        badObjects = getBadPS1Objects(conn, listId = int(options.badlist), rbThreshold = float(options.badrb), flagDate = dateThreshold, augmentedList = options.badaugment)
         print("Number of bad objects = ", len(badObjects))
 
         for candidate in badObjects:
