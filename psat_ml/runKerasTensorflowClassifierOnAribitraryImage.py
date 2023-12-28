@@ -43,7 +43,8 @@ def getRBValues(imageFilenames, classifier, extension = 0, keepfilename = None, 
         if imageLocation is not None and '/' not in imageFilename:
             imageFilename = imageLocation + '/' + imageFilename
         print(imageFilename)
-        vector = np.nan_to_num(TargetImage(imageFilename, extension=extension).signPreserveNorm())
+        #vector = np.nan_to_num(TargetImage(imageFilename, extension=extension).signPreserveNorm())
+        vector = np.nan_to_num(TargetImage(imageFilename, extension=extension, magicNumber = -31415).signPreserveNorm())
         #print vector
         #print vector.shape
         images[j,:,:,0] += np.reshape(vector, (image_dim,image_dim), order="F")
