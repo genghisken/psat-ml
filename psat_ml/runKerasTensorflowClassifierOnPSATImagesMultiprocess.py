@@ -30,11 +30,12 @@ Example:
   python %s ~/config.pso3.gw.warp.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --listid=4 --outputcsv=/tmp/pso3_list_4.csv
   python %s ../ps13pi/config/config.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --listid=4 --outputcsv=/tmp/ps13pi_list_4.csv
   python %s /usr/local/ps1code/gitrelease/atlas/config/config4_db1_readonly.yaml /tmp/candidates.txt --hkoclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/02a_asteroids_good330000_bad990000_s3_20230405_classifier.h5 --mloclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/asteroids136521_good13479_bad450000_20x20_skew3_signpreserve_20200819mlo_classifier.h5 --sthclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/03a_asteroids_good320000_bad960000_s3_20230303_classifier.h5 --chlclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/04a_asteroids_good380000_bad1140000_s3_20230213_classifier.h5 --outputcsv=/db4/tc_logs/atlas4/ml_tf_keras_20230502_1017.csv --update --candidatesinfiles
+  python %s /usr/local/ps1code/gitrelease/atlas/config/config4_db1_readonly.yaml /tmp/candidates_20230906.txt --hkoclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/02a_asteroids_good330000_bad990000_s3_20230405_20x20_nomagic_classifier.h5 --mloclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/01a_asteroids_20x20_good15000_bad45000_s3_20191125_nomagic_classifier.h5 --sthclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/03a_asteroids_good320000_bad960000_s3_20230303_20x20_nomagic_classifier.h5 --chlclassifier=/usr/local/ps1code/gitrelease/tf_trained_classifiers/04a_asteroids_good380000_bad1140000_s3_20230213_20x20_nomagic_classifier.h5 --outputcsv=/db4/tc_logs/atlas4/ml_tf_keras_20230906_1800.csv --update --candidatesinfiles --magicNumber=-31415 --imageroot=/db4/images/
   python %s ../../ps13pi/config/config.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --ps2classifier=/data/db0jbod05/training/ps2/ps2_good95824_bad287472_s3_20230707_20x20_classifier.h5 --listid=4 --imageroot=/db0/images/ --loglocation=/db0/tc_logs/ps13pi/ --update
 
 """
 import sys
-__doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
+__doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
 from docopt import docopt
 from gkutils.commonutils import Struct, cleanOptions, readGenericDataFile, dbConnect, splitList, parallelProcess
 import sys, csv, os, datetime
