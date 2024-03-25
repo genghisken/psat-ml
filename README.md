@@ -1,5 +1,5 @@
 # psat-ml
-Automatic classification of Pan-STARRS and ATLAS images. Based on the code originally written by Amanda Ibsen and Ken W. Smith. Documentation originally written by Amanda Ibsen. 
+Automatic classification of Pan-STARRS and ATLAS images. Based on the code originally written by Darryl Wright, Ken W. Smith and Amanda Ibsen. Documentation written by Amanda Ibsen. 
 
 ## In a Nutshell: 
 
