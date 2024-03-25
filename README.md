@@ -1,6 +1,9 @@
 # psat-ml
 Automatic classification of Pan-STARRS and ATLAS images. Based on the code originally written by Amanda Ibsen and Ken W. Smith. Documentation originally written by Amanda Ibsen. 
 
+[![DOI](https://zenodo.org/badge/621034501.svg)](https://zenodo.org/doi/10.5281/zenodo.10869719)
+
+
 ## In a Nutshell: 
 
 This repo contains a pipeline to connect to the [ATLAS](http://atlas.fallingstar.com/home.php) (or PS1) database, get cutouts of difference images, build a data set, train a classifier to differentiate between real and bogus images, and plot the results. 
