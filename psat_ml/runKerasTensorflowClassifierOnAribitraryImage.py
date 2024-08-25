@@ -2,7 +2,7 @@
 """Run the Keras/Tensorflow classifier.
 
 Usage:
-  %s <image>... [--classifier=<classifier>] [--outputcsv=<outputcsv>] [--fitsextension=<fitsextension>] [--keepfilename] [--fileoffiles] [--imagelocation=<imagelocation>]
+  %s <image>... [--classifier=<classifier>] [--outputcsv=<outputcsv>] [--fitsextension=<fitsextension>] [--keepfilename] [--fileoffiles] [--imagelocation=<imagelocation>] [--trainer=<trainer>]
   %s (-h | --help)
   %s --version
 
@@ -15,6 +15,7 @@ Options:
   --keepfilename                     Keep the filename - don't truncate it.
   --fileoffiles                      Image file is a file of files. Allows many thousands of files to be read, avoiding command line constraints.
   --imagelocation=<imagelocation>    Location of the images if not specified in the actual filename.
+  --trainer=<trainer>                Training file [default: PSAT-D].
 
 Example:
   python %s /tmp/image1.fits /tmp/image2.fits --classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --outputcsv=/tmp/output.csv
@@ -27,11 +28,13 @@ from gkutils.commonutils import Struct, cleanOptions, readGenericDataFile, dbCon
 import sys, csv, os
 from TargetImage import *
 import numpy as np
-from kerasTensorflowClassifier import create_model, load_data
+from kerasTensorflowClassifier import load_data
 from collections import defaultdict, OrderedDict
+# 2024-08-25 KWS Need importlib to import a library specified by a variable (trainer).
+import importlib
 
 
-def getRBValues(imageFilenames, classifier, extension = 0, keepfilename = None, imageLocation = None):
+def getRBValues(imageFilenames, classifier, extension = 0, keepfilename = None, imageLocation = None, trainer = 'PSAT-D'):
     num_classes = 2
     image_dim = 20
     numImages = len(imageFilenames)
@@ -51,6 +54,9 @@ def getRBValues(imageFilenames, classifier, extension = 0, keepfilename = None, 
 
     #print images.shape
 
+
+    trainer = importlib.import_module(trainer)
+    create_model = trainer.create_model
 
     model = create_model(num_classes, image_dim)
     model.load_weights(classifier)
@@ -91,7 +97,7 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
 
     fitsExtension = int(options.fitsextension)
 
-    objectDictPS1 = getRBValues(imageFilenames, options.classifier, extension = fitsExtension, keepfilename = options.keepfilename, imageLocation = options.imagelocation)
+    objectDictPS1 = getRBValues(imageFilenames, options.classifier, extension = fitsExtension, keepfilename = options.keepfilename, imageLocation = options.imagelocation, trainer = options.trainer)
     objectScores = defaultdict(dict)
     for k, v in list(objectDictPS1.items()):
         objectScores[k]['ps1'] = np.array(v)

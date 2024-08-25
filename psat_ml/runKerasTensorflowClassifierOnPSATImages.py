@@ -2,7 +2,7 @@
 """Run the Keras/Tensorflow classifier on Pan-STARRS and ATLAS images.
 
 Usage:
-  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--candidatesinfiles] [--magicNumber=<magicNumber>]
+  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--candidatesinfiles] [--magicNumber=<magicNumber>] [--trainer=<trainer>]
   %s (-h | --help)
   %s --version
 
@@ -23,6 +23,7 @@ Options:
   --columnname=<columnname>          Database column name to update [default: zooniverse_score].
   --candidatesinfiles                Interpret the inline candidate IDs as a files containing candidates.
   --magicNumber=<magicNumber>        Magic number used to mask bad pixels in integer image files (ATLAS only).
+  --trainer=<trainer>                Training file [default: PSAT-D].
 
 Example:
   python %s ~/config.pso3.gw.warp.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --listid=4 --outputcsv=/tmp/pso3_list_4.csv
@@ -40,8 +41,10 @@ from gkutils.commonutils import Struct, cleanOptions, readGenericDataFile, dbCon
 import sys, csv, os
 from TargetImage import *
 import numpy as np
-from kerasTensorflowClassifier import create_model, load_data
+from kerasTensorflowClassifier import load_data
 from collections import defaultdict, OrderedDict
+# 2024-08-25 KWS Need importlib to import a library specified by a variable (trainer).
+import importlib
 
 # 2019-05-05 KWS Limit the number of CPUs to 4 for each process. Should still overuse the CPUs
 #                but should get away with this because of I/O.
@@ -195,7 +198,7 @@ def updateObjectRBFactors(conn, objectId, realBogusValue, tableName, columnName)
     return rowsUpdated
 
 
-def getRBValues(imageFilenames, classifier, extension = 0, magicNumber = None):
+def getRBValues(imageFilenames, classifier, extension = 0, magicNumber = None, trainer = 'PSAT-D'):
     num_classes = 2
     image_dim = 20
     numImages = len(imageFilenames)
@@ -211,6 +214,8 @@ def getRBValues(imageFilenames, classifier, extension = 0, magicNumber = None):
 
     #print images.shape
 
+    trainer = importlib.import_module(trainer)
+    create_model = trainer.create_model
 
     model = create_model(num_classes, image_dim)
     model.load_weights(classifier)
@@ -314,9 +319,9 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
 
 
         if ps1Filenames:
-            objectDictPS1 = getRBValues(ps1Filenames, options.ps1classifier, extension = 1)
+            objectDictPS1 = getRBValues(ps1Filenames, options.ps1classifier, extension = 1, trainer = options.trainer)
         if ps2Filenames:
-            objectDictPS2 = getRBValues(ps2Filenames, options.ps2classifier, extension = 1)
+            objectDictPS2 = getRBValues(ps2Filenames, options.ps2classifier, extension = 1, trainer = options.trainer)
 
         # Now we have two dictionaries. Combine them.
 
@@ -361,13 +366,13 @@ def runKerasTensorflowClassifier(opts, processNumber = None):
                 chlFilenames.append(row['filename'])
 
         if hkoFilenames:
-            objectDictHKO = getRBValues(hkoFilenames, options.hkoclassifier, magicNumber = magicNumber)
+            objectDictHKO = getRBValues(hkoFilenames, options.hkoclassifier, magicNumber = magicNumber, trainer = options.trainer)
         if mloFilenames:
-            objectDictMLO = getRBValues(mloFilenames, options.mloclassifier, magicNumber = magicNumber)
+            objectDictMLO = getRBValues(mloFilenames, options.mloclassifier, magicNumber = magicNumber, trainer = options.trainer)
         if sthFilenames:
-            objectDictSTH = getRBValues(sthFilenames, options.sthclassifier, magicNumber = magicNumber)
+            objectDictSTH = getRBValues(sthFilenames, options.sthclassifier, magicNumber = magicNumber, trainer = options.trainer)
         if chlFilenames:
-            objectDictCHL = getRBValues(chlFilenames, options.chlclassifier, magicNumber = magicNumber)
+            objectDictCHL = getRBValues(chlFilenames, options.chlclassifier, magicNumber = magicNumber, trainer = options.trainer)
 
         # Now we have two dictionaries. Combine them.
 

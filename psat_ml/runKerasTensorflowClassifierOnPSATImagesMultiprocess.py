@@ -2,7 +2,7 @@
 """Run the Keras/Tensorflow classifier on Pan-STARRS and ATLAS images.
 
 Usage:
-  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--loglocation=<loglocation>] [--logprefix=<logprefix>] [--candidatesinfiles] [--magicNumber=<magicNumber>]
+  %s <configFile> [<candidate>...] [--hkoclassifier=<hkoclassifier>] [--mloclassifier=<mloclassifier>] [--sthclassifier=<sthclassifier>] [--chlclassifier=<chlclassifier>] [--ps1classifier=<ps1classifier>] [--ps2classifier=<ps2classifier>] [--outputcsv=<outputcsv>] [--listid=<listid>] [--imageroot=<imageroot>] [--update] [--tablename=<tablename>] [--columnname=<columnname>] [--loglocation=<loglocation>] [--logprefix=<logprefix>] [--candidatesinfiles] [--magicNumber=<magicNumber>] [--trainer=<trainer>]
   %s (-h | --help)
   %s --version
 
@@ -25,6 +25,7 @@ Options:
   --update                           Update the database.
   --candidatesinfiles                Interpret the inline candidate IDs as a files containing candidates.
   --magicNumber=<magicNumber>        Magic number used to mask bad pixels in integer image files (ATLAS only).
+  --trainer=<trainer>                Training file [default: PSAT-D].
 
 Example:
   python %s ~/config.pso3.gw.warp.yaml --ps1classifier=/data/db4data1/scratch/kws/training/ps1/20190115/ps1_20190115_400000_1200000.best.hdf5 --listid=4 --outputcsv=/tmp/pso3_list_4.csv
@@ -40,6 +41,8 @@ from docopt import docopt
 from gkutils.commonutils import Struct, cleanOptions, readGenericDataFile, dbConnect, splitList, parallelProcess
 import sys, csv, os, datetime
 from runKerasTensorflowClassifierOnPSATImages import getObjectsByList, runKerasTensorflowClassifier, updateTransientRBValue
+# 2024-08-25 KWS Need importlib to import a library specified by a variable (trainer).
+import importlib
 
 
 def worker(num, db, objectListFragment, dateAndTime, firstPass, miscParameters, q):
