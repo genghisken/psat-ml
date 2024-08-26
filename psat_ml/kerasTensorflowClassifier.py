@@ -2,7 +2,7 @@
 """Read the training set and train a machine.
 
 Usage:
-  %s <trainingset> [--classifierfile=<classifierfile>] [--outputcsv=<outputcsv>]
+  %s <trainingset> [--classifierfile=<classifierfile>] [--trainer=<trainer>] [--outputcsv=<outputcsv>]
   %s (-h | --help)
   %s --version
 
@@ -10,11 +10,13 @@ Options:
   -h --help                          Show this screen.
   --version                          Show version.
   --classifierfile=<classifierfile>  Classifier file [default: /tmp/atlas.model.best.hdf5].
+  --trainer=<trainer>                Training file [default: PSAT-D].
   --outputcsv=<outputcsv>            Output file [default: /tmp/output.csv].
 
 
 """
 import sys
+import importlib
 __doc__ = __doc__ % (sys.argv[0], sys.argv[0], sys.argv[0])
 from docopt import docopt
 import os, shutil, re
@@ -64,24 +66,6 @@ def load_data(filename):
     
     return (x_train, y_train, train_files), (x_test, y_test, test_files), image_dim
 
-def create_model(num_classes, image_dim):
-    model = Sequential()
-    model.add(Conv2D(filters=16, kernel_size=2, padding='same', \
-                     activation='relu', input_shape=(image_dim, image_dim, 1)))
-    model.add(MaxPooling2D(pool_size=2))
-    model.add(Conv2D(filters=32, kernel_size=2, padding='same', activation='relu'))
-    model.add(MaxPooling2D(pool_size=2))
-    model.add(Conv2D(filters=64, kernel_size=2, padding='same', activation='relu'))
-    model.add(MaxPooling2D(pool_size=2))
-    model.add(Dropout(0.3))
-    model.add(Flatten())
-    model.add(Dense(500, activation='relu'))
-    model.add(Dropout(0.4))
-    model.add(Dense(num_classes, activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam', \
-                  kerasmetrics=['accuracy'])
-    return model
-
 def kerasTensorflowClassifier(opts):
 
     # Use utils.Struct to convert the dict into an object for compatibility with old optparse code.
@@ -108,7 +92,11 @@ def kerasTensorflowClassifier(opts):
     x_test = test_data[0]
     #y_test = np_utils.to_categorical(test_data[1], num_classes)
     y_test = test_data[1]
-
+    
+    
+    trainer = importlib.import_module(options.trainer)
+    create_model = trainer.create_model
+    
     model = create_model(num_classes, image_dim)
     """  
     checkpointer = ModelCheckpoint(filepath=options.classifierfile, \
