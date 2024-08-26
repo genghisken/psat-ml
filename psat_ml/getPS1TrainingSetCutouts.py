@@ -3,7 +3,7 @@
 The cutouts are already done.
 
 Usage:
-  %s <configFile> [--stampLocation=<location>] [--test] [--imageRoot=<imageRoot>] [--badrb=<badrb>] [--flagdate=<flagdate>] [--goodlist=<goodlist>] [--badlist=<badlist>] [--imagetype=<imagetype>] [--badaugment=<badaugment>]
+  %s <configFile> [--stampLocation=<location>] [--test] [--imageRoot=<imageRoot>] [--badrblower=<badrblower>] [--badrbupper=<badrbupper>] [--flagdate=<flagdate>] [--goodlist=<goodlist>] [--badlist=<badlist>] [--imagetype=<imagetype>] [--badaugment=<badaugment>] --camera=<camera>
   %s (-h | --help)
   %s --version
 
@@ -13,15 +13,17 @@ Options:
   --test                       Just do a quick test.
   --stampLocation=<location>   Default place to store the stamps [default: /tmp].
   --imageRoot=<imageHome>      Location of the input images [default: /db0/images].
-  --badrb=<badrb>              Set the bad RB threshold [default: 0.01].
+  --badrblower=<badrblower>    Set the bad RB threshold lower limit [default: 0.01].
+  --badrbupper=<badrbupper>    Set the bad RB threshold upper limit [default: 0.3].
   --flagdate=<flagdate>        Flag date before which we will not request images, e.g. because optics have changed [default: 20100101].
   --goodlist=<goodlist>        Good list number - could be 2 (good) or 5 (attic) or 6 (movers) [default: 2].
   --badlist=<badlist>          Bad list number [default: 0].
   --badaugment=<badaugment>    Bad curated custom list number (used to augment the bad list to improve detection of artefacts).
   --imagetype=<imagetype>      Image type (good | bad | all) [default: all].
+  --camera=<camera>            Which detector are the images coming from [default: gpc1]?
 
 E.g.:
-  %s config_ps2_readonly.yaml --imageRoot=/db0/images --badrb=0.05 --flagdate=20211001 --stampLocation=/export/dbjbod5/db0jbod05/training/ps2
+  %s ../../ps13pi/config/config_readonly.yaml --imageRoot=/db0/images --badrblower=0.01 --badrbupper=0.3 --flagdate=20240101 --stampLocation=/export/dbjbod5/db0jbod05/training/ps2 --camera=gpc2 --badaugment=4
 
 """
 import sys
@@ -57,6 +59,7 @@ def getGoodPS1Objects(conn, listId, flagDate = '2010-01-01', rbThreshold = 0.05)
                and observation_status = 'mover'
                and confidence_factor is not null
                and (comment like 'EPH:%%' or comment like 'MPC:%%')
+               and comment REGEXP '\\\\([0-5]\.[0-9]\+ arcsec\\\\)'
                and followup_flag_date > %s
                and confidence_factor > %s
              union
@@ -74,7 +77,7 @@ def getGoodPS1Objects(conn, listId, flagDate = '2010-01-01', rbThreshold = 0.05)
     return resultSet
 
 
-def getBadPS1Objects(conn, listId, rbThreshold = 0.05, flagDate = '2010-01-01', augmentedList = None):
+def getBadPS1Objects(conn, listId, rbThresholdLower = 0.05, rbThresholdUpper = 0.3, flagDate = '2010-01-01', augmentedList = None):
     """
     Get "bad" objects
     """
@@ -88,25 +91,27 @@ def getBadPS1Objects(conn, listId, rbThreshold = 0.05, flagDate = '2010-01-01', 
             cursor.execute ("""
                 select o.id
                   from tcs_transient_objects o
-                 where confidence_factor < %s 
-                       and detection_list_id = %s
+                 where confidence_factor >= %s 
+                   and confidence_factor < %s
+                   and detection_list_id = %s
                    and sherlockClassification is not null
                    and followup_flag_date > %s
                  union
                 select g.transient_object_id as id
                   from tcs_object_groups g
                  where g.object_group_id = %s
-            """, (rbThreshold, listId, flagDate, int(augmentedList)))
+            """, (rbThresholdLower, rbThresholdUpper, listId, flagDate, int(augmentedList)))
 
         else:
             cursor.execute ("""
                 select distinct o.id
                   from tcs_transient_objects o
-                 where confidence_factor < %s 
-                       and detection_list_id = %s
+                 where confidence_factor >= %s 
+                   and confidence_factor < %s
+                   and detection_list_id = %s
                    and sherlockClassification is not null
                    and followup_flag_date > %s
-            """, (rbThreshold, listId, flagDate,))
+            """, (rbThresholdLower, rbThresholdUpper, listId, flagDate,))
 
         resultSet = cursor.fetchall ()
 
@@ -119,7 +124,7 @@ def getBadPS1Objects(conn, listId, rbThreshold = 0.05, flagDate = '2010-01-01', 
 
 
 
-def getImagesForObject(conn, objectId):
+def getImagesForObject(conn, objectId, camera = 'gpc1'):
     """
     Get images for an object.
     """
@@ -128,14 +133,28 @@ def getImagesForObject(conn, objectId):
     try:
         cursor = conn.cursor (MySQLdb.cursors.DictCursor)
 
-        cursor.execute ("""
-            select i.image_filename
-            from tcs_postage_stamp_images i
-            where i.image_filename like concat(%s, '%%')
-            and i.image_filename not like concat(%s, '%%4300000000%%')
-            and pss_error_code = 0
-            and i.image_type = 'diff'
-        """, (objectId, objectId))
+        if camera == 'gpc2':
+            cursor.execute ("""
+                select i.image_filename
+                from tcs_postage_stamp_images i
+                where i.image_filename like concat(%s, '%%')
+                and i.image_filename not like concat(%s, '%%4300000000%%')
+                and pss_error_code = 0
+                and i.image_type = 'diff'
+                and i.filter like '%%00002'
+            """, (objectId, objectId))
+        else:
+            # It can only be gpc1!
+            cursor.execute ("""
+                select i.image_filename
+                from tcs_postage_stamp_images i
+                where i.image_filename like concat(%s, '%%')
+                and i.image_filename not like concat(%s, '%%4300000000%%')
+                and pss_error_code = 0
+                and i.image_type = 'diff'
+                and i.filter like '%%00000'
+            """, (objectId, objectId))
+
         resultSet = cursor.fetchall ()
 
         cursor.close ()
@@ -168,7 +187,7 @@ def getTrainingSetImages(conn, options, database):
         print("Number of good objects = ", len(goodObjects))
 
         for candidate in goodObjects:
-            images = getImagesForObject(conn, candidate['id'])
+            images = getImagesForObject(conn, candidate['id'], camera = options.camera)
 
             for image in images:
                 mjd = image['image_filename'].split('_')[1].split('.')[0]
@@ -183,11 +202,11 @@ def getTrainingSetImages(conn, options, database):
 
     
     if options.imagetype in ['all', 'bad']:
-        badObjects = getBadPS1Objects(conn, listId = int(options.badlist), rbThreshold = float(options.badrb), flagDate = dateThreshold, augmentedList = options.badaugment)
+        badObjects = getBadPS1Objects(conn, listId = int(options.badlist), rbThresholdLower = float(options.badrblower), rbThresholdUpper = float(options.badrbupper), flagDate = dateThreshold, augmentedList = options.badaugment)
         print("Number of bad objects = ", len(badObjects))
 
         for candidate in badObjects:
-            images = getImagesForObject(conn, candidate['id'])
+            images = getImagesForObject(conn, candidate['id'], camera = options.camera)
 
             for image in images:
                 mjd = image['image_filename'].split('_')[1].split('.')[0]
