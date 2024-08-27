@@ -230,7 +230,7 @@ class mainFrame(wx.Frame):
         
         file = self.files_to_plot[self.AXES.index(self.axes)]
         
-        print(event)
+        #print(event)
         if event.button == 1: # Left click
             label = self.y[self.start+self.AXES.index(self.axes)]
             if label == 0:
