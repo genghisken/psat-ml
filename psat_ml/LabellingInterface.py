@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Interface to facilitate manual user labelling.
+"""Interface to facilitate manual real/bogus training set labelling.
 
    Ken W. Smith
    Converted to Python 3, to read HDF5 files, and added configurable stamp numbers (nside).
@@ -127,6 +127,7 @@ class mainFrame(wx.Frame):
         self.panel = wx.Panel(self)
         self.set_text = wx.StaticText(self.panel, -1, label="Showing : All (%d examples)" % self.m)
         self.set_text.SetBackgroundColour(wx.WHITE)
+        self.set_text.SetForegroundColour("#0F0F0F")
         font = wx.Font(20, wx.MODERN, wx.NORMAL, wx.BOLD)
         self.set_text.SetFont(font)
         
@@ -229,21 +230,26 @@ class mainFrame(wx.Frame):
         
         file = self.files_to_plot[self.AXES.index(self.axes)]
         
-        if event.button == 1:
+        print(event)
+        if event.button == 1: # Left click
             label = self.y[self.start+self.AXES.index(self.axes)]
             if label == 0:
                 self.new_real_files.append(str(file).split("/")[-1])
+                # Don't add the same object more than once!
+                self.new_real_files = list(set(self.new_real_files))
                 print("1")
                 self.draw_fig()
                 self.canvas.draw()
                 self.canvas.Refresh()
             elif label == 1:
                 self.new_bogus_files.append(str(file).split("/")[-1])
+                # Don't add the same object more than once!
+                self.new_bogus_files = list(set(self.new_bogus_files))
                 print("2")
                 self.draw_fig()
                 self.canvas.draw()
                 self.canvas.Refresh()
-        elif event.button == 3 and file.split("/")[-1] in set(self.new_real_files):
+        elif event.button == 3 and str(file).split("/")[-1] in set(self.new_real_files):
                 self.new_real_files.remove(str(file).split("/")[-1])
                 print("3")
                 self.draw_fig(init=True)
@@ -251,7 +257,7 @@ class mainFrame(wx.Frame):
                 self.canvas.Refresh()
         elif event.button == 3 and str(file).split("/")[-1] in set(self.new_bogus_files):
                 self.new_bogus_files.remove(str(file).split("/")[-1])
-                print("4")
+                print("3")
                 self.draw_fig(init=True)
                 self.canvas.draw()
                 self.canvas.Refresh()
@@ -544,7 +550,7 @@ class DataSetControlBox(wx.Panel):
         m,n = np.shape(self.frame.X)
         self.frame.draw_fig(True)
         self.frame.canvas.draw()
-        self.frame.set_text.SetLabel("Showing : Fasle Negative (%d examples)" % m)
+        self.frame.set_text.SetLabel("Showing : False Negative (%d examples)" % m)
         self.frame.data_set_control.tp_button.Enable()
         self.frame.data_set_control.fp_button.Enable()
         self.frame.data_set_control.tn_button.Enable()
@@ -590,7 +596,7 @@ class DataSetControlBox(wx.Panel):
         m,n = np.shape(self.frame.X)
         self.frame.draw_fig(True)
         self.frame.canvas.draw()
-        self.frame.set_text.SetLabel("Showing : Bogus (%d examp les)" % m)
+        self.frame.set_text.SetLabel("Showing : Bogus (%d examples)" % m)
         self.frame.data_set_control.bogus_button.Disable()
         self.frame.data_set_control.real_button.Enable()
 
